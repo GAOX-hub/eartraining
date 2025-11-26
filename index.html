@@ -1,213 +1,396 @@
-<div class="music-input-container">
-  <!-- 五线谱显示区域 -->
-  <div class="staff-container">
-    <svg class="staff" width="600" height="100">
-      <!-- 五线谱线（5条水平线） -->
-      <line x1="50" y1="30" x2="550" y2="30" stroke="blue" stroke-width="2" />
-      <line x1="50" y1="45" x2="550" y2="45" stroke="blue" stroke-width="2" />
-      <line x1="50" y1="60" x2="550" y2="60" stroke="blue" stroke-width="2" />
-      <line x1="50" y1="75" x2="550" y2="75" stroke="blue" stroke-width="2" />
-      <line x1="50" y1="90" x2="550" y2="90" stroke="blue" stroke-width="2" />
-      <!-- 高音谱号（可通过SVG路径绘制） -->
-      <path d="M70,90 C80,30 100,20 110,50 C105,30 120,20 130,40 C125,10 150,10 160,40" 
-            stroke="black" fill="none" stroke-width="2" />
-    </svg>
-  </div>
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>视唱练听小练习</title>
 
-  <!-- 功能按钮区 -->
-  <div class="control-buttons">
-    <button class="new-question">新问题</button>
-    <button class="replay">重听</button>
-  </div>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
 
-  <!-- 音符输入键盘 -->
-  <div class="note-keyboard">
-    <!-- 第一行 -->
-    <button class="key">无</button>
-    <button class="key disabled"></button>
-    <button class="key note">C</button>
-    <button class="key note">D</button>
-    <button class="key backspace">⌫</button>
-    
-    <!-- 第二行 -->
-    <button class="key accidental">#</button>
-    <button class="key disabled"></button>
-    <button class="key note">E</button>
-    <button class="key note">F</button>
-    <button class="key note">G</button>
-    <button class="key up">↑</button>
-    
-    <!-- 第三行 -->
-    <button class="key accidental">×</button>
-    <button class="key note">A</button>
-    <button class="key note">B</button>
-    <button class="key octave">+8va</button>
-    <button class="key octave">-8va</button>
-    
-    <!-- 第四行 -->
-    <button class="key accidental">♭</button>
-    <button class="key accidental">♭♭</button>
-    <button class="key complete">完成</button>
-  </div>
-</div>
-.music-input-container {
-  background: #1a1a1a;
-  padding: 20px;
-  border-radius: 8px;
-  color: white;
-  width: 650px;
-}
+  <!-- VexFlow（五线谱渲染） -->
+  <script src="https://cdn.jsdelivr.net/npm/vexflow@4.2.3/build/vexflow-min.js"></script>
 
-.staff-container {
-  margin-bottom: 20px;
-}
+  <!-- Howler（音频播放） -->
+  <script src="https://cdn.jsdelivr.net/npm/howler@2.2.3/dist/howler.min.js"></script>
 
-.control-buttons {
-  display: flex;
-  justify-content: space-between;
-  margin: 15px 0;
-}
+  <!-- 图标 -->
+  <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
 
-.control-buttons button {
-  background: #333;
-  color: white;
-  border: none;
-  padding: 8px 15px;
-  border-radius: 4px;
-  cursor: pointer;
-}
+<body class="bg-gradient-to-br from-indigo-50 to-purple-50 min-h-screen flex flex-col items-center p-4 md:p-8">
 
-.control-buttons .replay {
-  color: #4da6ff;
-}
+  <!-- 标题 -->
+  <header class="w-full max-w-4xl text-center mb-8">
+    <h1 class="text-4xl font-bold text-indigo-700 mb-2">视唱练听小练习</h1>
+    <p class="text-gray-600">
+      步骤：听题目 → 在五线谱上输入 5 个音符 → 提交查看得分
+    </p>
+  </header>
 
-.note-keyboard {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 8px;
-  margin-top: 20px;
-}
+  <!-- 主卡片 -->
+  <main class="w-full max-w-4xl bg-white rounded-2xl shadow-lg p-6 md:p-8 flex flex-col gap-8">
 
-.key {
-  background: #444;
-  color: white;
-  border: none;
-  padding: 12px 0;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 16px;
-}
+    <!-- 1. 音频播放区 -->
+    <section class="border-b border-gray-200 pb-6">
+      <h2 class="text-2xl font-semibold text-indigo-600 mb-4 flex items-center gap-2">
+        <i class="fas fa-music"></i> 题目播放
+      </h2>
 
-.key.note {
-  background: #555;
-}
+      <div class="flex flex-col md:flex-row gap-4 items-center justify-between">
+        <div class="text-left">
+          <div class="text-gray-700 mb-1">当前练习：前 5 个音听写</div>
+          <div class="text-xs text-gray-500">
+            （只播放 mp3 的前 3.1 秒 ≈ 前 5 个音）
+          </div>
+        </div>
 
-.key.accidental {
-  background: #666;
-}
+        <div class="flex gap-3 items-center">
+          <button id="play-btn"
+                  class="bg-indigo-600 text-white px-5 py-2.5 rounded-lg flex items-center gap-2
+                         hover:bg-indigo-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed">
+            <i class="fas fa-play"></i> 播放题目
+          </button>
 
-.key.complete {
-  grid-column: span 2;
-  background: #4da6ff;
-}
+          <button id="pause-btn" disabled
+                  class="bg-gray-600 text-white px-5 py-2.5 rounded-lg flex items-center gap-2
+                         hover:bg-gray-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed">
+            <i class="fas fa-pause"></i> 暂停
+          </button>
+        </div>
+      </div>
 
-.key:disabled, .key.disabled {
-  background: #333;
-  cursor: not-allowed;
-  opacity: 0.5;
-}
-// 获取元素
-const noteKeys = document.querySelectorAll('.key.note');
-const accidentalKeys = document.querySelectorAll('.key.accidental');
-const completeBtn = document.querySelector('.key.complete');
-const replayBtn = document.querySelector('.replay');
-const staff = document.querySelector('.staff');
+      <!-- 进度条（只显示 0~前 5 个音这一段） -->
+      <progress id="audio-progress" value="0" max="100"
+                class="w-full h-2 mt-4 rounded"></progress>
+    </section>
 
-// 当前选中的音符
-let currentNote = null;
+    <!-- 2. 五线谱 + 音符输入 -->
+    <section class="flex flex-col gap-6">
+      <h2 class="text-2xl font-semibold text-indigo-600 flex items-center gap-2">
+        <i class="fas fa-pencil-alt"></i> 你的答案（五线谱）
+      </h2>
 
-// 音符点击事件
-noteKeys.forEach(key => {
-  key.addEventListener('click', () => {
-    currentNote = key.textContent;
-    updateStaff(); // 更新五线谱显示
-  });
-});
+      <!-- 五线谱区域 -->
+      <div id="staff-user"
+           class="w-full h-64 bg-gray-50 border border-gray-200 rounded-lg flex items-center justify-center">
+      </div>
 
-// 变音记号点击事件
-accidentalKeys.forEach(key => {
-  key.addEventListener('click', () => {
-    if (currentNote) {
-      currentNote = key.textContent + currentNote; // 拼接变音记号（如#C）
-      updateStaff();
+      <p class="text-sm text-gray-500 text-center">
+        点击下面的按钮，将音符依次加入五线谱中（最多 5 个音）。
+      </p>
+
+      <!-- 音符按钮 -->
+      <div class="flex flex-wrap gap-2 justify-center">
+        <!-- data-note 决定音高 -->
+        <button class="note-btn bg-indigo-500 text-white px-4 py-2 rounded-lg"
+                data-note="C4">Do (C4)</button>
+        <button class="note-btn bg-indigo-500 text-white px-4 py-2 rounded-lg"
+                data-note="D4">Re (D4)</button>
+        <button class="note-btn bg-indigo-500 text-white px-4 py-2 rounded-lg"
+                data-note="E4">Mi (E4)</button>
+        <button class="note-btn bg-indigo-500 text-white px-4 py-2 rounded-lg"
+                data-note="F4">Fa (F4)</button>
+        <button class="note-btn bg-indigo-500 text-white px-4 py-2 rounded-lg"
+                data-note="G4">Sol (G4)</button>
+        <button class="note-btn bg-indigo-500 text-white px-4 py-2 rounded-lg"
+                data-note="A4">La (A4)</button>
+        <button class="note-btn bg-indigo-500 text-white px-4 py-2 rounded-lg"
+                data-note="B4">Si (B4)</button>
+        <button class="note-btn bg-indigo-500 text-white px-4 py-2 rounded-lg"
+                data-note="C5">Do (C5)</button>
+        <!-- 视实际练习需要，可以再加 D5、E5 等 -->
+        <button class="note-btn bg-indigo-500 text-white px-4 py-2 rounded-lg"
+                data-note="D5">Re (D5)</button>
+        <button class="note-btn bg-indigo-500 text-white px-4 py-2 rounded-lg"
+                data-note="C#5">Ci (C#5)</button>
+      </div>
+
+      <!-- 操作按钮 -->
+      <div class="flex justify-center gap-4 mt-2">
+        <button id="clear-btn"
+                class="bg-red-500 text-white px-6 py-2 rounded-lg flex items-center gap-2
+                       hover:bg-red-600 transition">
+          <i class="fas fa-trash"></i> 清空输入
+        </button>
+        <button id="submit-btn"
+                class="bg-green-500 text-white px-6 py-2 rounded-lg flex items-center gap-2
+                       hover:bg-green-600 transition">
+          <i class="fas fa-check"></i> 提交答案
+        </button>
+      </div>
+    </section>
+
+    <!-- 3. 评分与正确答案 -->
+    <section class="border-t border-gray-200 pt-6 text-center">
+      <h2 class="text-2xl font-semibold text-indigo-600 flex items-center justify-center gap-2 mb-4">
+        <i class="fas fa-graduation-cap"></i> 评分与答案
+      </h2>
+
+      <div id="score-display" class="text-3xl font-bold text-gray-700 mb-2">
+        得分：-- / 100
+      </div>
+
+      <div id="detail-text" class="text-sm text-gray-500 mb-4">
+        共需输入 5 个音。
+      </div>
+
+      <!-- 正确答案（文字） -->
+      <div id="correct-answer-text" class="text-lg text-gray-700 mb-3 hidden">
+        正确答案：<span id="answer-notes"></span>
+      </div>
+
+      <!-- 正确答案五线谱 -->
+      <div id="staff-correct"
+           class="w-full h-52 bg-gray-50 border border-gray-200 rounded-lg flex items-center justify-center hidden">
+      </div>
+
+      <button id="reset-btn"
+              class="mt-5 bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition">
+        <i class="fas fa-rotate-right"></i> 再做一次
+      </button>
+    </section>
+  </main>
+
+  <footer class="mt-8 text-gray-500 text-center text-sm">
+    © 2025 视唱练听练习小站
+  </footer>
+
+  <!-- 逻辑脚本 -->
+  <script>
+    // ========== 1. 配置区域（你以后只要改这里） ==========
+
+    // mp3 文件名（和 GitHub 仓库里的文件名对应）
+    const AUDIO_FILE = "exercise.mp3";
+
+    // 前 5 个音的时长（秒）：根据分析，大约 3.01 秒，这里取 3.1 秒略放宽
+    const CLIP_DURATION = 3.1;
+
+    // 正确答案：前 5 个音（来自你的乐谱）
+    const CORRECT_NOTES = ["D5", "B4", "C#5", "D5", "B4"];
+
+    // 用户最多可以输入的音符数量
+    const MAX_NOTES = 5;
+
+
+    // ========== 2. 全局变量 ==========
+    const VF = Vex.Flow;
+    let userNotes = [];
+    let player = null;
+    let staffUserRenderer = null;
+    let staffCorrectRenderer = null;
+
+
+    // ========== 3. 工具函数：音名 -> VexFlow key ==========
+    // 例如 "D5" -> "d/5" ，"C#5" -> "c#/5"
+    function noteToVexKey(note) {
+      const m = note.match(/^([A-G])(#|b)?(\d)$/);
+      if (!m) return null;
+      const step = m[1].toLowerCase();
+      const acc = m[2] || "";
+      const oct = m[3];
+      return { key: `${step}${acc}/${oct}`, acc };
     }
-  });
-});
 
-// 重听按钮
-replayBtn.addEventListener('click', () => {
-  if (currentNote) {
-    // 调用音频播放逻辑（需结合Web Audio API或音频库）
-    playNote(currentNote);
-  }
-});
+    // 在指定容器里画一条五线谱 + 一串音符
+    function drawStaff(containerId, notesArray) {
+      const container = document.getElementById(containerId);
+      container.innerHTML = "";
 
-// 完成按钮
-completeBtn.addEventListener('click', () => {
-  if (currentNote) {
-    alert(`输入完成：${currentNote}`);
-    // 可在此处提交数据
-  }
-});
+      const width = container.clientWidth || 600;
+      const height = container.clientHeight || 160;
 
-// 更新五线谱（根据选中的音符绘制相应位置的音符）
-function updateStaff() {
-  // 清除现有音符
-  const existingNotes = staff.querySelectorAll('.note-symbol');
-  existingNotes.forEach(note => note.remove());
-  
-  // 根据音符确定在五线谱上的位置（示例：C在第一线）
-  const noteYPositions = {
-    'C': 30, 'D': 45, 'E': 60, 'F': 75, 'G': 90,
-    'A': 45, 'B': 60
-  };
-  
-  const y = noteYPositions[currentNote.replace(/[#♭×]/g, '')]; // 忽略变音记号取位置
-  if (y) {
-    // 绘制音符头（椭圆）
-    const noteSymbol = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
-    noteSymbol.setAttribute('cx', '150');
-    noteSymbol.setAttribute('cy', y);
-    noteSymbol.setAttribute('rx', 8);
-    noteSymbol.setAttribute('ry', 10);
-    noteSymbol.setAttribute('fill', 'black');
-    noteSymbol.classList.add('note-symbol');
-    staff.appendChild(noteSymbol);
-  }
-}
+      const renderer = new VF.Renderer(container, VF.Renderer.Backends.SVG);
+      renderer.resize(width, height);
+      const context = renderer.getContext();
 
-// 播放音符（示例：使用Web Audio API）
-function playNote(note) {
-  const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-  const oscillator = audioContext.createOscillator();
-  const gainNode = audioContext.createGain();
-  
-  // 音符频率映射（示例）
-  const noteFrequencies = {
-    'C': 261.63, 'D': 293.66, 'E': 329.63, 'F': 349.23,
-    'G': 392.00, 'A': 440.00, 'B': 493.88
-  };
-  
-  oscillator.type = 'sine';
-  oscillator.frequency.setValueAtTime(
-    noteFrequencies[note.replace(/[#♭×]/g, '')] || 440, // 默认A4（标准音）
-    audioContext.currentTime
-  );
-  
-  oscillator.connect(gainNode);
-  gainNode.connect(audioContext.destination);
-  gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
-  
-  oscillator.start();
-  oscillator.stop(audioContext.currentTime + 1); // 播放1秒
-}
+      const stave = new VF.Stave(10, 20, width - 20);
+      stave.addClef("treble");
+      stave.setContext(context).draw();
+
+      if (!notesArray || notesArray.length === 0) {
+        return renderer;
+      }
+
+      const staveNotes = notesArray.map(n => {
+        const nk = noteToVexKey(n);
+        if (!nk) return null;
+        const note = new VF.StaveNote({
+          clef: "treble",
+          keys: [nk.key],
+          duration: "q"
+        });
+        if (nk.acc) {
+          note.addModifier(new VF.Accidental(nk.acc), 0);
+        }
+        return note;
+      }).filter(Boolean);
+
+      if (staveNotes.length === 0) {
+        return renderer;
+      }
+
+      const voice = new VF.Voice({
+        num_beats: staveNotes.length,
+        beat_value: 4
+      });
+      voice.addTickables(staveNotes);
+
+      new VF.Formatter().joinVoices([voice]).format([voice], width - 80);
+      voice.draw(context, stave);
+
+      return renderer;
+    }
+
+
+    // ========== 4. 音频相关 ==========
+    const playBtn = document.getElementById("play-btn");
+    const pauseBtn = document.getElementById("pause-btn");
+    const progressBar = document.getElementById("audio-progress");
+
+    function initAudio() {
+      player = new Howl({
+        src: [AUDIO_FILE],
+        html5: true,
+        onplay: () => {
+          playBtn.disabled = true;
+          pauseBtn.disabled = false;
+          startProgressLoop();
+          // 在 CLIP_DURATION 秒后自动停止，以只播放前五个音
+          setTimeout(() => {
+            if (player.playing()) {
+              player.stop();
+              playBtn.disabled = false;
+              pauseBtn.disabled = true;
+              progressBar.value = 0;
+            }
+          }, CLIP_DURATION * 1000);
+        },
+        onend: () => {
+          playBtn.disabled = false;
+          pauseBtn.disabled = true;
+          progressBar.value = 0;
+        },
+        onpause: () => {
+          playBtn.disabled = false;
+          pauseBtn.disabled = true;
+        }
+      });
+    }
+
+    function startProgressLoop() {
+      if (!player) return;
+      function step() {
+        if (player && player.playing()) {
+          const t = player.seek() || 0;
+          // 进度条只用 CLIP_DURATION 作为 100%
+          const ratio = Math.min(t / CLIP_DURATION, 1);
+          progressBar.value = ratio * 100;
+          requestAnimationFrame(step);
+        }
+      }
+      requestAnimationFrame(step);
+    }
+
+    playBtn.addEventListener("click", () => {
+      if (!player) initAudio();
+      // 从头开始播放
+      player.seek(0);
+      player.play();
+    });
+
+    pauseBtn.addEventListener("click", () => {
+      if (player && player.playing()) {
+        player.pause();
+      }
+    });
+
+
+    // ========== 5. 音符输入 ==========
+    const noteButtons = document.querySelectorAll(".note-btn");
+    const clearBtn = document.getElementById("clear-btn");
+    const submitBtn = document.getElementById("submit-btn");
+    const resetBtn = document.getElementById("reset-btn");
+
+    function refreshUserStaff() {
+      staffUserRenderer = drawStaff("staff-user", userNotes);
+    }
+
+    noteButtons.forEach(btn => {
+      btn.addEventListener("click", () => {
+        const note = btn.dataset.note;
+        if (userNotes.length >= MAX_NOTES) {
+          alert("本题只需要输入 5 个音符，已达到上限。");
+          return;
+        }
+        userNotes.push(note);
+        refreshUserStaff();
+      });
+    });
+
+    clearBtn.addEventListener("click", () => {
+      userNotes = [];
+      refreshUserStaff();
+      document.getElementById("score-display").textContent = "得分：-- / 100";
+      document.getElementById("detail-text").textContent = "共需输入 5 个音。";
+      document.getElementById("correct-answer-text").classList.add("hidden");
+      document.getElementById("staff-correct").classList.add("hidden");
+    });
+
+
+    // ========== 6. 提交答案 & 评分 ==========
+    const scoreDisplay = document.getElementById("score-display");
+    const detailText = document.getElementById("detail-text");
+    const correctAnswerText = document.getElementById("correct-answer-text");
+    const answerNotesSpan = document.getElementById("answer-notes");
+
+    submitBtn.addEventListener("click", () => {
+      if (userNotes.length < MAX_NOTES) {
+        alert(`请先输入 ${MAX_NOTES} 个音符再提交（当前只输入了 ${userNotes.length} 个）。`);
+        return;
+      }
+
+      let correctCount = 0;
+      for (let i = 0; i < MAX_NOTES; i++) {
+        if (userNotes[i] === CORRECT_NOTES[i]) {
+          correctCount++;
+        }
+      }
+      const score = correctCount * 20;
+
+      scoreDisplay.textContent = `得分：${score} / 100`;
+      detailText.textContent = `共 5 个音，你答对了 ${correctCount} 个。`;
+
+      // 显示正确答案（文字）
+      answerNotesSpan.textContent = CORRECT_NOTES.join("  ");
+      correctAnswerText.classList.remove("hidden");
+
+      // 显示正确答案（五线谱）
+      drawStaff("staff-correct", CORRECT_NOTES);
+      document.getElementById("staff-correct").classList.remove("hidden");
+    });
+
+    // 再做一次
+    resetBtn.addEventListener("click", () => {
+      userNotes = [];
+      refreshUserStaff();
+      scoreDisplay.textContent = "得分：-- / 100";
+      detailText.textContent = "共需输入 5 个音。";
+      correctAnswerText.classList.add("hidden");
+      document.getElementById("staff-correct").classList.add("hidden");
+      progressBar.value = 0;
+      if (player) {
+        player.stop();
+        playBtn.disabled = false;
+        pauseBtn.disabled = true;
+      }
+    });
+
+
+    // ========== 7. 页面加载时的初始化 ==========
+    window.addEventListener("load", () => {
+      refreshUserStaff(); // 先画一条空谱
+    });
+  </script>
+</body>
+</html>
