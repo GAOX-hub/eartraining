@@ -1,0 +1,213 @@
+<div class="music-input-container">
+  <!-- 五线谱显示区域 -->
+  <div class="staff-container">
+    <svg class="staff" width="600" height="100">
+      <!-- 五线谱线（5条水平线） -->
+      <line x1="50" y1="30" x2="550" y2="30" stroke="blue" stroke-width="2" />
+      <line x1="50" y1="45" x2="550" y2="45" stroke="blue" stroke-width="2" />
+      <line x1="50" y1="60" x2="550" y2="60" stroke="blue" stroke-width="2" />
+      <line x1="50" y1="75" x2="550" y2="75" stroke="blue" stroke-width="2" />
+      <line x1="50" y1="90" x2="550" y2="90" stroke="blue" stroke-width="2" />
+      <!-- 高音谱号（可通过SVG路径绘制） -->
+      <path d="M70,90 C80,30 100,20 110,50 C105,30 120,20 130,40 C125,10 150,10 160,40" 
+            stroke="black" fill="none" stroke-width="2" />
+    </svg>
+  </div>
+
+  <!-- 功能按钮区 -->
+  <div class="control-buttons">
+    <button class="new-question">新问题</button>
+    <button class="replay">重听</button>
+  </div>
+
+  <!-- 音符输入键盘 -->
+  <div class="note-keyboard">
+    <!-- 第一行 -->
+    <button class="key">无</button>
+    <button class="key disabled"></button>
+    <button class="key note">C</button>
+    <button class="key note">D</button>
+    <button class="key backspace">⌫</button>
+    
+    <!-- 第二行 -->
+    <button class="key accidental">#</button>
+    <button class="key disabled"></button>
+    <button class="key note">E</button>
+    <button class="key note">F</button>
+    <button class="key note">G</button>
+    <button class="key up">↑</button>
+    
+    <!-- 第三行 -->
+    <button class="key accidental">×</button>
+    <button class="key note">A</button>
+    <button class="key note">B</button>
+    <button class="key octave">+8va</button>
+    <button class="key octave">-8va</button>
+    
+    <!-- 第四行 -->
+    <button class="key accidental">♭</button>
+    <button class="key accidental">♭♭</button>
+    <button class="key complete">完成</button>
+  </div>
+</div>
+.music-input-container {
+  background: #1a1a1a;
+  padding: 20px;
+  border-radius: 8px;
+  color: white;
+  width: 650px;
+}
+
+.staff-container {
+  margin-bottom: 20px;
+}
+
+.control-buttons {
+  display: flex;
+  justify-content: space-between;
+  margin: 15px 0;
+}
+
+.control-buttons button {
+  background: #333;
+  color: white;
+  border: none;
+  padding: 8px 15px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.control-buttons .replay {
+  color: #4da6ff;
+}
+
+.note-keyboard {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.key {
+  background: #444;
+  color: white;
+  border: none;
+  padding: 12px 0;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.key.note {
+  background: #555;
+}
+
+.key.accidental {
+  background: #666;
+}
+
+.key.complete {
+  grid-column: span 2;
+  background: #4da6ff;
+}
+
+.key:disabled, .key.disabled {
+  background: #333;
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+// 获取元素
+const noteKeys = document.querySelectorAll('.key.note');
+const accidentalKeys = document.querySelectorAll('.key.accidental');
+const completeBtn = document.querySelector('.key.complete');
+const replayBtn = document.querySelector('.replay');
+const staff = document.querySelector('.staff');
+
+// 当前选中的音符
+let currentNote = null;
+
+// 音符点击事件
+noteKeys.forEach(key => {
+  key.addEventListener('click', () => {
+    currentNote = key.textContent;
+    updateStaff(); // 更新五线谱显示
+  });
+});
+
+// 变音记号点击事件
+accidentalKeys.forEach(key => {
+  key.addEventListener('click', () => {
+    if (currentNote) {
+      currentNote = key.textContent + currentNote; // 拼接变音记号（如#C）
+      updateStaff();
+    }
+  });
+});
+
+// 重听按钮
+replayBtn.addEventListener('click', () => {
+  if (currentNote) {
+    // 调用音频播放逻辑（需结合Web Audio API或音频库）
+    playNote(currentNote);
+  }
+});
+
+// 完成按钮
+completeBtn.addEventListener('click', () => {
+  if (currentNote) {
+    alert(`输入完成：${currentNote}`);
+    // 可在此处提交数据
+  }
+});
+
+// 更新五线谱（根据选中的音符绘制相应位置的音符）
+function updateStaff() {
+  // 清除现有音符
+  const existingNotes = staff.querySelectorAll('.note-symbol');
+  existingNotes.forEach(note => note.remove());
+  
+  // 根据音符确定在五线谱上的位置（示例：C在第一线）
+  const noteYPositions = {
+    'C': 30, 'D': 45, 'E': 60, 'F': 75, 'G': 90,
+    'A': 45, 'B': 60
+  };
+  
+  const y = noteYPositions[currentNote.replace(/[#♭×]/g, '')]; // 忽略变音记号取位置
+  if (y) {
+    // 绘制音符头（椭圆）
+    const noteSymbol = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
+    noteSymbol.setAttribute('cx', '150');
+    noteSymbol.setAttribute('cy', y);
+    noteSymbol.setAttribute('rx', 8);
+    noteSymbol.setAttribute('ry', 10);
+    noteSymbol.setAttribute('fill', 'black');
+    noteSymbol.classList.add('note-symbol');
+    staff.appendChild(noteSymbol);
+  }
+}
+
+// 播放音符（示例：使用Web Audio API）
+function playNote(note) {
+  const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  const oscillator = audioContext.createOscillator();
+  const gainNode = audioContext.createGain();
+  
+  // 音符频率映射（示例）
+  const noteFrequencies = {
+    'C': 261.63, 'D': 293.66, 'E': 329.63, 'F': 349.23,
+    'G': 392.00, 'A': 440.00, 'B': 493.88
+  };
+  
+  oscillator.type = 'sine';
+  oscillator.frequency.setValueAtTime(
+    noteFrequencies[note.replace(/[#♭×]/g, '')] || 440, // 默认A4（标准音）
+    audioContext.currentTime
+  );
+  
+  oscillator.connect(gainNode);
+  gainNode.connect(audioContext.destination);
+  gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+  
+  oscillator.start();
+  oscillator.stop(audioContext.currentTime + 1); // 播放1秒
+}
