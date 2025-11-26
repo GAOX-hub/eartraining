@@ -10,15 +10,15 @@
   <!-- VexFlow（五线谱渲染） -->
   <script src="https://cdn.jsdelivr.net/npm/vexflow@4.2.3/build/vexflow-min.js"></script>
 
-  <!-- Howler（音频播放） -->
-  <script src="https://cdn.jsdelivr.net/npm/howler@2.2.3/dist/howler.min.js"></script>
-
   <!-- 图标 -->
   <link rel="stylesheet"
         href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 
 <body class="bg-gradient-to-br from-indigo-50 to-purple-50 min-h-screen flex flex-col items-center p-4 md:p-8">
+
+  <!-- 隐藏的原生 audio（关键：src 就是 exercise.mp3） -->
+  <audio id="audio-element" src="exercise.mp3"></audio>
 
   <!-- 标题 -->
   <header class="w-full max-w-4xl text-center mb-8">
@@ -82,7 +82,6 @@
 
       <!-- 音符按钮 -->
       <div class="flex flex-wrap gap-2 justify-center">
-        <!-- data-note 决定音高 -->
         <button class="note-btn bg-indigo-500 text-white px-4 py-2 rounded-lg"
                 data-note="C4">Do (C4)</button>
         <button class="note-btn bg-indigo-500 text-white px-4 py-2 rounded-lg"
@@ -99,7 +98,6 @@
                 data-note="B4">Si (B4)</button>
         <button class="note-btn bg-indigo-500 text-white px-4 py-2 rounded-lg"
                 data-note="C5">Do (C5)</button>
-        <!-- 视实际练习需要，可以再加 D5、E5 等 -->
         <button class="note-btn bg-indigo-500 text-white px-4 py-2 rounded-lg"
                 data-note="D5">Re (D5)</button>
         <button class="note-btn bg-indigo-500 text-white px-4 py-2 rounded-lg"
@@ -158,31 +156,24 @@
 
   <!-- 逻辑脚本 -->
   <script>
-    // ========== 1. 配置区域（你以后只要改这里） ==========
-
-    // mp3 文件名（和 GitHub 仓库里的文件名对应）
-    const AUDIO_FILE = "exercise.mp3";
-
-    // 前 5 个音的时长（秒）：根据分析，大约 3.01 秒，这里取 3.1 秒略放宽
-    const CLIP_DURATION = 3.1;
-
-    // 正确答案：前 5 个音（来自你的乐谱）
+    // ========== 1. 配置区域 ==========
+    const CLIP_DURATION = 3.1;   // 只听前 3.1 秒 ≈ 前五个音
     const CORRECT_NOTES = ["D5", "B4", "C#5", "D5", "B4"];
-
-    // 用户最多可以输入的音符数量
     const MAX_NOTES = 5;
-
 
     // ========== 2. 全局变量 ==========
     const VF = Vex.Flow;
     let userNotes = [];
-    let player = null;
-    let staffUserRenderer = null;
-    let staffCorrectRenderer = null;
 
+    const audioEl = document.getElementById("audio-element");
+    const playBtn = document.getElementById("play-btn");
+    const pauseBtn = document.getElementById("pause-btn");
+    const progressBar = document.getElementById("audio-progress");
 
-    // ========== 3. 工具函数：音名 -> VexFlow key ==========
-    // 例如 "D5" -> "d/5" ，"C#5" -> "c#/5"
+    // 简单防止多次 setTimeout
+    let clipTimer = null;
+
+    // ========== 3. 五线谱绘制 ==========
     function noteToVexKey(note) {
       const m = note.match(/^([A-G])(#|b)?(\d)$/);
       if (!m) return null;
@@ -192,7 +183,6 @@
       return { key: `${step}${acc}/${oct}`, acc };
     }
 
-    // 在指定容器里画一条五线谱 + 一串音符
     function drawStaff(containerId, notesArray) {
       const container = document.getElementById(containerId);
       container.innerHTML = "";
@@ -208,9 +198,7 @@
       stave.addClef("treble");
       stave.setContext(context).draw();
 
-      if (!notesArray || notesArray.length === 0) {
-        return renderer;
-      }
+      if (!notesArray || notesArray.length === 0) return;
 
       const staveNotes = notesArray.map(n => {
         const nk = noteToVexKey(n);
@@ -220,15 +208,11 @@
           keys: [nk.key],
           duration: "q"
         });
-        if (nk.acc) {
-          note.addModifier(new VF.Accidental(nk.acc), 0);
-        }
+        if (nk.acc) note.addModifier(new VF.Accidental(nk.acc), 0);
         return note;
       }).filter(Boolean);
 
-      if (staveNotes.length === 0) {
-        return renderer;
-      }
+      if (!staveNotes.length) return;
 
       const voice = new VF.Voice({
         num_beats: staveNotes.length,
@@ -238,83 +222,64 @@
 
       new VF.Formatter().joinVoices([voice]).format([voice], width - 80);
       voice.draw(context, stave);
-
-      return renderer;
     }
 
-
-    // ========== 4. 音频相关 ==========
-    const playBtn = document.getElementById("play-btn");
-    const pauseBtn = document.getElementById("pause-btn");
-    const progressBar = document.getElementById("audio-progress");
-
-    function initAudio() {
-      player = new Howl({
-        src: [AUDIO_FILE],
-        html5: true,
-        onplay: () => {
-          playBtn.disabled = true;
-          pauseBtn.disabled = false;
-          startProgressLoop();
-          // 在 CLIP_DURATION 秒后自动停止，以只播放前五个音
-          setTimeout(() => {
-            if (player.playing()) {
-              player.stop();
-              playBtn.disabled = false;
-              pauseBtn.disabled = true;
-              progressBar.value = 0;
-            }
-          }, CLIP_DURATION * 1000);
-        },
-        onend: () => {
-          playBtn.disabled = false;
-          pauseBtn.disabled = true;
-          progressBar.value = 0;
-        },
-        onpause: () => {
-          playBtn.disabled = false;
-          pauseBtn.disabled = true;
-        }
-      });
+    function refreshUserStaff() {
+      drawStaff("staff-user", userNotes);
     }
 
-    function startProgressLoop() {
-      if (!player) return;
-      function step() {
-        if (player && player.playing()) {
-          const t = player.seek() || 0;
-          // 进度条只用 CLIP_DURATION 作为 100%
-          const ratio = Math.min(t / CLIP_DURATION, 1);
-          progressBar.value = ratio * 100;
-          requestAnimationFrame(step);
-        }
-      }
-      requestAnimationFrame(step);
-    }
-
+    // ========== 4. 音频播放（用原生 audio） ==========
     playBtn.addEventListener("click", () => {
-      if (!player) initAudio();
-      // 从头开始播放
-      player.seek(0);
-      player.play();
+      if (clipTimer) {
+        clearTimeout(clipTimer);
+        clipTimer = null;
+      }
+      audioEl.currentTime = 0;
+      audioEl.play();
+      playBtn.disabled = true;
+      pauseBtn.disabled = false;
+
+      // 限制只播放前 CLIP_DURATION 秒
+      clipTimer = setTimeout(() => {
+        audioEl.pause();
+        audioEl.currentTime = 0;
+        playBtn.disabled = false;
+        pauseBtn.disabled = true;
+      }, CLIP_DURATION * 1000);
     });
 
     pauseBtn.addEventListener("click", () => {
-      if (player && player.playing()) {
-        player.pause();
+      audioEl.pause();
+      playBtn.disabled = false;
+      pauseBtn.disabled = true;
+      if (clipTimer) {
+        clearTimeout(clipTimer);
+        clipTimer = null;
       }
     });
 
+    // 更新进度条（只按 CLIP_DURATION 计算）
+    audioEl.addEventListener("timeupdate", () => {
+      const t = audioEl.currentTime;
+      const ratio = Math.min(t / CLIP_DURATION, 1);
+      progressBar.value = ratio * 100;
+    });
+
+    audioEl.addEventListener("ended", () => {
+      playBtn.disabled = false;
+      pauseBtn.disabled = true;
+      progressBar.value = 0;
+      if (clipTimer) {
+        clearTimeout(clipTimer);
+        clipTimer = null;
+      }
+    });
 
     // ========== 5. 音符输入 ==========
     const noteButtons = document.querySelectorAll(".note-btn");
     const clearBtn = document.getElementById("clear-btn");
     const submitBtn = document.getElementById("submit-btn");
     const resetBtn = document.getElementById("reset-btn");
-
-    function refreshUserStaff() {
-      staffUserRenderer = drawStaff("staff-user", userNotes);
-    }
 
     noteButtons.forEach(btn => {
       btn.addEventListener("click", () => {
@@ -337,8 +302,7 @@
       document.getElementById("staff-correct").classList.add("hidden");
     });
 
-
-    // ========== 6. 提交答案 & 评分 ==========
+    // ========== 6. 提交 & 评分 ==========
     const scoreDisplay = document.getElementById("score-display");
     const detailText = document.getElementById("detail-text");
     const correctAnswerText = document.getElementById("correct-answer-text");
@@ -361,16 +325,13 @@
       scoreDisplay.textContent = `得分：${score} / 100`;
       detailText.textContent = `共 5 个音，你答对了 ${correctCount} 个。`;
 
-      // 显示正确答案（文字）
       answerNotesSpan.textContent = CORRECT_NOTES.join("  ");
       correctAnswerText.classList.remove("hidden");
 
-      // 显示正确答案（五线谱）
       drawStaff("staff-correct", CORRECT_NOTES);
       document.getElementById("staff-correct").classList.remove("hidden");
     });
 
-    // 再做一次
     resetBtn.addEventListener("click", () => {
       userNotes = [];
       refreshUserStaff();
@@ -379,17 +340,19 @@
       correctAnswerText.classList.add("hidden");
       document.getElementById("staff-correct").classList.add("hidden");
       progressBar.value = 0;
-      if (player) {
-        player.stop();
-        playBtn.disabled = false;
-        pauseBtn.disabled = true;
+      audioEl.pause();
+      audioEl.currentTime = 0;
+      playBtn.disabled = false;
+      pauseBtn.disabled = true;
+      if (clipTimer) {
+        clearTimeout(clipTimer);
+        clipTimer = null;
       }
     });
 
-
-    // ========== 7. 页面加载时的初始化 ==========
+    // ========== 7. 初始化 ==========
     window.addEventListener("load", () => {
-      refreshUserStaff(); // 先画一条空谱
+      refreshUserStaff();
     });
   </script>
 </body>
