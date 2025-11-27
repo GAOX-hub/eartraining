@@ -7,8 +7,8 @@
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
 
-  <!-- VexFlow（五线谱渲染） -->
-<script src="https://unpkg.com/vexflow/releases/vexflow-debug.js"></script>
+  <!-- VexFlow（五线谱渲染，带全局 Vex.Flow） -->
+  <script src="https://unpkg.com/vexflow/releases/vexflow-debug.js"></script>
 
   <!-- 图标 -->
   <link rel="stylesheet"
@@ -17,7 +17,7 @@
 
 <body class="bg-gradient-to-br from-indigo-50 to-purple-50 min-h-screen flex flex-col items-center p-4 md:p-8">
 
-  <!-- 隐藏的原生 audio（关键：src 就是 exercise.mp3） -->
+  <!-- 隐藏的原生 audio（注意：src 就是 exercise.mp3） -->
   <audio id="audio-element" src="exercise.mp3"></audio>
 
   <!-- 标题 -->
@@ -157,20 +157,25 @@
   <!-- 逻辑脚本 -->
   <script>
     // ========== 1. 配置区域 ==========
-    const CLIP_DURATION = 3.1;   // 只听前 3.1 秒 ≈ 前五个音
-    const CORRECT_NOTES = ["D5", "B4", "C#5", "D5", "B4"];
+    const CLIP_DURATION = 3.1;                // 只听前 3.1 秒 ≈ 前五个音
+    const CORRECT_NOTES = ["D5","B4","C#5","D5","B4"]; // 正确答案
     const MAX_NOTES = 5;
 
     // ========== 2. 全局变量 ==========
-    const VF = Vex.Flow;
+    let VF = null;
+    if (window.Vex && Vex.Flow) {
+      VF = Vex.Flow;
+    } else {
+      console.warn("VexFlow 未加载成功，五线谱功能将不可用。");
+    }
+
     let userNotes = [];
 
-    const audioEl = document.getElementById("audio-element");
-    const playBtn = document.getElementById("play-btn");
-    const pauseBtn = document.getElementById("pause-btn");
+    const audioEl     = document.getElementById("audio-element");
+    const playBtn     = document.getElementById("play-btn");
+    const pauseBtn    = document.getElementById("pause-btn");
     const progressBar = document.getElementById("audio-progress");
 
-    // 简单防止多次 setTimeout
     let clipTimer = null;
 
     // ========== 3. 五线谱绘制 ==========
@@ -178,16 +183,18 @@
       const m = note.match(/^([A-G])(#|b)?(\d)$/);
       if (!m) return null;
       const step = m[1].toLowerCase();
-      const acc = m[2] || "";
-      const oct = m[3];
+      const acc  = m[2] || "";
+      const oct  = m[3];
       return { key: `${step}${acc}/${oct}`, acc };
     }
 
     function drawStaff(containerId, notesArray) {
+      if (!VF) return;  // VexFlow 未加载则直接返回
+
       const container = document.getElementById(containerId);
       container.innerHTML = "";
 
-      const width = container.clientWidth || 600;
+      const width  = container.clientWidth || 600;
       const height = container.clientHeight || 160;
 
       const renderer = new VF.Renderer(container, VF.Renderer.Backends.SVG);
@@ -198,7 +205,7 @@
       stave.addClef("treble");
       stave.setContext(context).draw();
 
-      if (!notesArray || notesArray.length === 0) return;
+      if (!notesArray || !notesArray.length) return;
 
       const staveNotes = notesArray.map(n => {
         const nk = noteToVexKey(n);
@@ -228,7 +235,7 @@
       drawStaff("staff-user", userNotes);
     }
 
-    // ========== 4. 音频播放（用原生 audio） ==========
+    // ========== 4. 音频播放（原生 audio） ==========
     playBtn.addEventListener("click", () => {
       if (clipTimer) {
         clearTimeout(clipTimer);
@@ -236,21 +243,21 @@
       }
       audioEl.currentTime = 0;
       audioEl.play();
-      playBtn.disabled = true;
+      playBtn.disabled  = true;
       pauseBtn.disabled = false;
 
-      // 限制只播放前 CLIP_DURATION 秒
+      // 只播放前 CLIP_DURATION 秒
       clipTimer = setTimeout(() => {
         audioEl.pause();
         audioEl.currentTime = 0;
-        playBtn.disabled = false;
+        playBtn.disabled  = false;
         pauseBtn.disabled = true;
       }, CLIP_DURATION * 1000);
     });
 
     pauseBtn.addEventListener("click", () => {
       audioEl.pause();
-      playBtn.disabled = false;
+      playBtn.disabled  = false;
       pauseBtn.disabled = true;
       if (clipTimer) {
         clearTimeout(clipTimer);
@@ -258,7 +265,6 @@
       }
     });
 
-    // 更新进度条（只按 CLIP_DURATION 计算）
     audioEl.addEventListener("timeupdate", () => {
       const t = audioEl.currentTime;
       const ratio = Math.min(t / CLIP_DURATION, 1);
@@ -266,7 +272,7 @@
     });
 
     audioEl.addEventListener("ended", () => {
-      playBtn.disabled = false;
+      playBtn.disabled  = false;
       pauseBtn.disabled = true;
       progressBar.value = 0;
       if (clipTimer) {
@@ -277,9 +283,9 @@
 
     // ========== 5. 音符输入 ==========
     const noteButtons = document.querySelectorAll(".note-btn");
-    const clearBtn = document.getElementById("clear-btn");
-    const submitBtn = document.getElementById("submit-btn");
-    const resetBtn = document.getElementById("reset-btn");
+    const clearBtn    = document.getElementById("clear-btn");
+    const submitBtn   = document.getElementById("submit-btn");
+    const resetBtn    = document.getElementById("reset-btn");
 
     noteButtons.forEach(btn => {
       btn.addEventListener("click", () => {
@@ -297,16 +303,16 @@
       userNotes = [];
       refreshUserStaff();
       document.getElementById("score-display").textContent = "得分：-- / 100";
-      document.getElementById("detail-text").textContent = "共需输入 5 个音。";
+      document.getElementById("detail-text").textContent   = "共需输入 5 个音。";
       document.getElementById("correct-answer-text").classList.add("hidden");
       document.getElementById("staff-correct").classList.add("hidden");
     });
 
     // ========== 6. 提交 & 评分 ==========
-    const scoreDisplay = document.getElementById("score-display");
-    const detailText = document.getElementById("detail-text");
-    const correctAnswerText = document.getElementById("correct-answer-text");
-    const answerNotesSpan = document.getElementById("answer-notes");
+    const scoreDisplay       = document.getElementById("score-display");
+    const detailText         = document.getElementById("detail-text");
+    const correctAnswerText  = document.getElementById("correct-answer-text");
+    const answerNotesSpan    = document.getElementById("answer-notes");
 
     submitBtn.addEventListener("click", () => {
       if (userNotes.length < MAX_NOTES) {
@@ -316,14 +322,12 @@
 
       let correctCount = 0;
       for (let i = 0; i < MAX_NOTES; i++) {
-        if (userNotes[i] === CORRECT_NOTES[i]) {
-          correctCount++;
-        }
+        if (userNotes[i] === CORRECT_NOTES[i]) correctCount++;
       }
       const score = correctCount * 20;
 
       scoreDisplay.textContent = `得分：${score} / 100`;
-      detailText.textContent = `共 5 个音，你答对了 ${correctCount} 个。`;
+      detailText.textContent   = `共 5 个音，你答对了 ${correctCount} 个。`;
 
       answerNotesSpan.textContent = CORRECT_NOTES.join("  ");
       correctAnswerText.classList.remove("hidden");
@@ -336,13 +340,13 @@
       userNotes = [];
       refreshUserStaff();
       scoreDisplay.textContent = "得分：-- / 100";
-      detailText.textContent = "共需输入 5 个音。";
+      detailText.textContent   = "共需输入 5 个音。";
       correctAnswerText.classList.add("hidden");
       document.getElementById("staff-correct").classList.add("hidden");
       progressBar.value = 0;
       audioEl.pause();
       audioEl.currentTime = 0;
-      playBtn.disabled = false;
+      playBtn.disabled  = false;
       pauseBtn.disabled = true;
       if (clipTimer) {
         clearTimeout(clipTimer);
@@ -352,9 +356,8 @@
 
     // ========== 7. 初始化 ==========
     window.addEventListener("load", () => {
-      refreshUserStaff();
+      refreshUserStaff(); // 画一条空谱
     });
   </script>
 </body>
 </html>
-
